@@ -2,18 +2,18 @@
 <html>
 <head>
     <title>Corner Size Measure</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <!-- Markdown for AI Text -->
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <style>
         :root {
             --primary: #1890ff;
-            --danger: #ff4d4f;
+            --accent: #ff4d4f;
             --ai-color: #8e44ad;
             --bg-dark: #222;
             --bg-panel: #fff;
             --text-main: #333;
             --text-sub: #666;
-            --header-height: 60px;
         }
 
         body { 
@@ -25,7 +25,7 @@
             overflow: hidden; 
         }
 
-        /* --- DESKTOP LAYOUT (Default) --- */
+        /* --- LAYOUT --- */
         .sidebar { 
             flex: 0 0 320px; 
             background: var(--bg-panel); 
@@ -35,10 +35,8 @@
             flex-direction: column; 
             overflow-y: auto; 
             z-index: 20; 
+            padding-bottom: 100px;
         }
-
-        /* Mobile Drag Handle (Hidden on Desktop) */
-        .sheet-handle { display: none; }
 
         .main-area { 
             flex: 1; 
@@ -49,22 +47,20 @@
             background: #1a1a1a;
         }
 
+        /* --- CANVAS --- */
         .canvas-container { 
             flex: 1; 
             position: relative; 
             overflow: auto; 
             display: flex; 
             touch-action: none; 
-            padding: 20px; 
-            align-items: center; 
-            justify-content: center; 
+            padding: 40px; 
         }
         
         canvas { 
             display: block; 
             background: white; 
             box-shadow: 0 0 50px rgba(0,0,0,0.5); 
-            /* Margin auto handles centering in flex container */
             margin: auto; 
             transform-origin: center center;
         }
@@ -89,7 +85,7 @@
 
         /* --- UI ELEMENTS --- */
         h2 { margin-top: 0; font-size: 1.2rem; color: var(--text-main); display: flex; align-items: center; }
-        h3 { font-size: 0.8rem; color: var(--text-sub); margin: 15px 0 8px 0; text-transform: uppercase; letter-spacing: 1px; border-bottom: 1px solid #eee; padding-bottom: 5px; font-weight: 700; }
+        h3 { font-size: 0.8rem; color: var(--text-sub); margin: 20px 0 10px 0; text-transform: uppercase; letter-spacing: 1px; border-bottom: 1px solid #eee; padding-bottom: 5px; font-weight: 700; }
 
         .file-input-wrapper { margin-bottom: 15px; }
         input[type="file"] { width: 100%; padding: 12px; background: #f5f5f5; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; font-size: 0.9rem; }
@@ -110,44 +106,55 @@
         button.action-btn:hover { background: #40a9ff; color: white; }
         button.action-btn:active { transform: translateY(1px); }
 
+        /* AI Button */
         button.ai-btn {
             background: linear-gradient(135deg, #8e44ad 0%, #3498db 100%);
             color: white; border: none; text-align: center; justify-content: center;
             font-weight: bold; box-shadow: 0 4px 10px rgba(142, 68, 173, 0.3);
         }
-        
+        button.ai-btn:hover { box-shadow: 0 6px 15px rgba(142, 68, 173, 0.5); transform: translateY(-1px); }
+
+        /* Small Preset Buttons */
         button.small-btn {
             padding: 8px; font-size: 0.85rem; width: 48%; display: inline-block; text-align: center;
             background: #f0f0f0; border: 1px solid #ccc; justify-content: center;
         }
+        button.small-btn:hover { background: #e0e0e0; }
 
         .status-dot { height: 8px; width: 8px; background: #ddd; border-radius: 50%; display: inline-block; }
         button.active .status-dot { background: var(--primary); box-shadow: 0 0 0 2px rgba(24,144,255,0.2); }
         button.completed .status-dot { background: #52c41a; }
 
-        .results { background: #f6ffed; border: 1px solid #b7eb8f; padding: 15px; border-radius: 8px; margin-top: 15px; font-size: 14px; }
+        .instructions { font-size: 0.85rem; color: #666; margin-top: 15px; line-height: 1.5; background: #f9f9f9; padding: 12px; border-radius: 8px; border: 1px solid #eee; }
+
+        /* --- RESULTS PANEL --- */
+        .results { background: #f6ffed; border: 1px solid #b7eb8f; padding: 15px; border-radius: 8px; margin-top: 20px; font-size: 14px; }
         .result-row { display: flex; justify-content: space-between; margin-bottom: 6px; color: #555; }
         .result-row.sub { margin-left: 12px; color: #888; font-size: 0.85rem; border-bottom: 1px dashed #eee; padding-bottom: 2px; }
-        .result-row.main { font-size: 1.1rem; font-weight: 700; margin-top: 12px; border-top: 1px solid #d9d9d9; padding-top: 10px; color: #333; display: flex; align-items: center; }
+        .result-row.main { font-size: 1.1rem; font-weight: 700; margin-top: 15px; border-top: 1px solid #d9d9d9; padding-top: 10px; color: #333; display: flex; align-items: center; }
         
         .color-box { width: 12px; height: 12px; display: inline-block; margin-right: 10px; border-radius: 3px; vertical-align: middle; }
         .box-color { background: var(--primary); }
         .corner-color { background: var(--danger); }
 
+        /* --- TOOLTIPS --- */
         .info-icon {
             display: inline-flex; justify-content: center; align-items: center;
             width: 20px; height: 20px; background: #ccc; color: white;
             border-radius: 50%; font-size: 12px; font-weight: bold; font-family: serif;
             margin-left: 8px; cursor: help; flex-shrink: 0; transition: background 0.2s;
         }
+        .info-icon:hover { background: #888; }
 
+        /* AI Modal & Tooltips */
         #globalTooltip {
             position: fixed; background: rgba(30, 30, 30, 0.95); color: #fff; 
             padding: 16px; border-radius: 8px; font-size: 14px; line-height: 1.6; 
-            max-width: 280px; z-index: 99999; display: none; white-space: pre-wrap; 
+            max-width: 280px; box-shadow: 0 10px 40px rgba(0,0,0,0.5); 
+            z-index: 99999; display: none; white-space: pre-wrap; 
             border: 1px solid #555; pointer-events: none;
         }
-
+        
         #aiModal {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background: rgba(0,0,0,0.8); z-index: 100000;
@@ -161,88 +168,25 @@
         .ai-header { font-size: 1.2rem; font-weight: bold; margin-bottom: 15px; color: var(--ai-color); display: flex; justify-content: space-between; }
         .close-modal { cursor: pointer; font-size: 24px; color: #999; }
 
-
-        /* --- MOBILE SLIDE-UP PANEL --- */
         @media (max-width: 768px) {
-            body { 
-                flex-direction: column; 
-                background: #1c1c1e; /* Dark theme bg */
-            }
+            body { flex-direction: column; }
+            .sidebar { order: 2; height: 50%; width: 100%; box-shadow: 0 -4px 20px rgba(0,0,0,0.2); border-top-left-radius: 20px; border-top-right-radius: 20px; }
+            .main-area { order: 1; height: 50%; }
             
-            /* Sidebar becomes Bottom Sheet */
-            .sidebar { 
-                position: fixed;
-                bottom: 0; left: 0; right: 0;
-                width: 100%;
-                height: 85vh; /* Max expansion height */
-                z-index: 1000;
-                border-top-left-radius: 20px;
-                border-top-right-radius: 20px;
-                padding: 0 20px 40px 20px; /* Reset padding */
-                box-shadow: 0 -5px 30px rgba(0,0,0,0.3);
-                transition: transform 0.3s cubic-bezier(0.25, 1, 0.5, 1);
-                
-                /* COLLAPSED STATE (Default) */
-                /* Show just enough for handle + title */
-                transform: translateY(calc(100% - 70px));
-            }
-
-            .sidebar.expanded {
-                transform: translateY(0);
-            }
-
-            /* Handle for dragging/clicking */
-            .sheet-handle {
-                display: block;
-                width: 100%;
-                padding: 15px 0;
-                cursor: pointer;
-                display: flex;
-                justify-content: center;
-                background: white; /* Sticky header background */
-                position: sticky;
-                top: 0;
-                z-index: 10;
-                border-top-left-radius: 20px;
-                border-top-right-radius: 20px;
-            }
-            .sheet-bar {
-                width: 50px; height: 5px; background: #ddd; border-radius: 10px;
-            }
-
-            /* Image Area takes full screen behind sheet */
-            .main-area { 
-                position: absolute; top: 0; left: 0; right: 0; bottom: 0;
-                height: 100vh;
-                z-index: 1;
-            }
-            
-            /* Add padding to canvas container so image isn't hidden behind bottom bar initially */
-            .canvas-container { 
-                padding: 10px; 
-                padding-bottom: 80px; 
-                box-sizing: border-box;
-            }
-            
-            /* Floating Toolbar on top of Image */
-            .toolbar {
-                position: absolute;
-                top: 50px; left: 20px; right: 20px;
-                background: rgba(30, 30, 30, 0.85);
-                backdrop-filter: blur(10px);
-                border-radius: 12px;
-                justify-content: center;
-                border: 1px solid #444;
-            }
-
             #globalTooltip {
                 top: 50% !important; left: 50% !important; transform: translate(-50%, -50%) !important;
-                width: 80%; max-width: 320px; background: #222; pointer-events: auto;
+                width: 80%; max-width: 340px; background: #222; pointer-events: auto;
                 box-shadow: 0 0 100px rgba(0,0,0,0.9); border: 1px solid #444;
             }
             #globalTooltip::after {
-                content: '(Tap to close)'; display: block; margin-top: 15px; padding-top: 10px; border-top: 1px solid #444;
+                content: '(Tap anywhere to close)'; display: block; margin-top: 15px; padding-top: 10px; border-top: 1px solid #444;
                 font-size: 12px; color: #888; text-align: center; font-style: italic;
+            }
+            
+            .toolbar {
+                 position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%);
+                 background: rgba(30,30,30,0.8); border-radius: 30px; border: 1px solid #555;
+                 backdrop-filter: blur(10px); width: 90%;
             }
         }
     </style>
@@ -262,26 +206,9 @@
         </div>
     </div>
 
-    <!-- MAIN IMAGE AREA -->
-    <div class="main-area">
-        <div class="toolbar">
-            <label>Zoom</label>
-            <input type="range" id="zoomSlider" min="1" max="5" step="0.1" value="1">
-            <span id="zoomVal" class="zoom-label">1.0x</span>
-        </div>
-        <div class="canvas-container" id="canvasContainer">
-            <canvas id="canvas"></canvas>
-        </div>
-    </div>
-
-    <!-- SLIDE UP SIDEBAR -->
-    <div class="sidebar" id="bottomSheet">
-        <div class="sheet-handle" onclick="toggleSheet()">
-            <div class="sheet-bar"></div>
-        </div>
-
-        <h2 onclick="toggleSheet()">
-            Corner Size
+    <div class="sidebar">
+        <h2>
+            Corner Size 
             <span class="info-icon" data-tooltip="Tool Purpose:&#10;&#10;Measures 'Corner Size' of Emerald Cut diamonds.&#10;&#10;1. Outline: Blue Box.&#10;2. Corners: Red Lines.&#10;3. Grades: VEN & AG.">i</span>
         </h2>
         
@@ -336,6 +263,17 @@
         <div style="height: 50px;"></div>
     </div>
 
+    <div class="main-area">
+        <div class="toolbar">
+            <label>Zoom</label>
+            <input type="range" id="zoomSlider" min="1" max="5" step="0.1" value="1">
+            <span id="zoomVal" class="zoom-label">1.0x</span>
+        </div>
+        <div class="canvas-container" id="canvasContainer">
+            <canvas id="canvas"></canvas>
+        </div>
+    </div>
+
 <script>
     // --- APP STATE ---
     const apiKey = ""; // Fill API Key
@@ -359,7 +297,7 @@
         bottomSheet.classList.toggle('expanded');
     }
     // Auto-expand when file loaded
-    function expandSheet() { bottomSheet.classList.add('expanded'); }
+    function expandSheet() { if(bottomSheet) bottomSheet.classList.add('expanded'); }
 
     // --- INIT ---
     document.getElementById('imageLoader').addEventListener('change', handleImage, false);
@@ -440,11 +378,13 @@
         ctx.clearRect(0,0,canvas.width,canvas.height); ctx.drawImage(img, IMG_PAD, IMG_PAD);
         const imgW = img.width; const imgH = img.height;
         
-        let defH = imgH * 0.95; let defW = defH / 1.45;
-        if (defW > imgW * 0.95) { defW = imgW * 0.95; defH = defW * 1.45; }
+        let defH = imgH * 0.99; 
+        let defW = defH / 1.45; 
+        
+        if (defW > imgW * 0.99) { defW = imgW * 0.99; defH = defW * 1.45; }
 
         const cx = imgW/2 + IMG_PAD; const cy = imgH/2 + IMG_PAD;
-        const halfW = defW/2; const halfH = defH/2;
+        const halfW = defW / 2; const halfH = defH / 2;
         let minX=cx-halfW, maxX=cx+halfW, minY=cy-halfH, maxY=cy+halfH;
         
         stoneQuad = [{x:minX, y:minY}, {x:maxX, y:minY}, {x:maxX, y:maxY}, {x:minX, y:maxY}];
