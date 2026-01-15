@@ -55,13 +55,16 @@
             overflow: auto; 
             display: flex; 
             touch-action: none; 
-            padding: 40px; 
+            padding: 20px; 
+            align-items: center; 
+            justify-content: center; 
         }
         
         canvas { 
             display: block; 
             background: white; 
             box-shadow: 0 0 50px rgba(0,0,0,0.5); 
+            /* Margin auto handles centering in flex container */
             margin: auto; 
             transform-origin: center center;
         }
@@ -200,6 +203,8 @@
                 position: sticky;
                 top: 0;
                 z-index: 10;
+                border-top-left-radius: 20px;
+                border-top-right-radius: 20px;
             }
             .sheet-bar {
                 width: 50px; height: 5px; background: #ddd; border-radius: 10px;
@@ -212,7 +217,12 @@
                 z-index: 1;
             }
             
-            .canvas-container { padding: 10px; padding-bottom: 150px; } /* Pad for collapsed sheet */
+            /* Add padding to canvas container so image isn't hidden behind bottom bar initially */
+            .canvas-container { 
+                padding: 10px; 
+                padding-bottom: 80px; 
+                box-sizing: border-box;
+            }
             
             /* Floating Toolbar on top of Image */
             .toolbar {
@@ -240,9 +250,14 @@
 <body>
 
     <div id="globalTooltip" onclick="this.style.display='none'"></div>
+
+    <!-- AI Modal -->
     <div id="aiModal">
         <div class="ai-content">
-            <div class="ai-header"><span>Gemologist AI ✨</span><span class="close-modal" onclick="document.getElementById('aiModal').style.display='none'">&times;</span></div>
+            <div class="ai-header">
+                <span>Gemologist AI ✨</span>
+                <span class="close-modal" onclick="document.getElementById('aiModal').style.display='none'">&times;</span>
+            </div>
             <div id="aiResult">Loading...</div>
         </div>
     </div>
@@ -403,10 +418,14 @@
 
     function calcBaseScale() {
         const container = document.getElementById('canvasContainer');
-        const availW = container.clientWidth; const availH = container.clientHeight;
-        const scaleW = availW / canvas.width; const scaleH = availH / canvas.height;
+        // Subtract padding 
+        const availW = container.clientWidth - 40; 
+        const availH = container.clientHeight - 40;
+        const scaleW = availW / canvas.width;
+        const scaleH = availH / canvas.height;
+        // Always fit entirely
         fitScale = Math.min(scaleW, scaleH);
-        if(isMobile() && fitScale > 1) fitScale = 1;
+        // On mobile, if scale is tiny, don't let it disappear, but respecting min is usually safe
     }
     function applyZoom() {
         if(!img.src) return;
@@ -438,6 +457,7 @@
         const h = Math.hypot(stoneQuad[3].x-stoneQuad[0].x, stoneQuad[3].y-stoneQuad[0].y);
         const minDim = Math.min(w, h);
         const dist = minDim * fraction;
+
         function getPt(a, b, d) {
             const tot = Math.hypot(b.x-a.x, b.y-a.y); if (tot===0) return a;
             const t = d/tot; return { x: a.x+(b.x-a.x)*t, y: a.y+(b.y-a.y)*t };
@@ -464,7 +484,8 @@
     function checkHandles(pos) {
         const r = SNAP_DIST * 1.5;
         for(let i=0; i<4; i++) {
-            const c=corners[i]; if(c) {
+            const c=corners[i];
+            if(c) {
                 if(dist(pos, c.x1, c.y1)<r) return {type:'corner', idx:i, h:1};
                 if(dist(pos, c.x2, c.y2)<r) return {type:'corner', idx:i, h:2};
             }
@@ -545,12 +566,26 @@
             if(c) {
                 ctx.strokeStyle = '#ff4d4f'; ctx.lineWidth = LINE_WIDTH;
                 ctx.beginPath(); ctx.moveTo(c.x1, c.y1); ctx.lineTo(c.x2, c.y2); ctx.stroke();
-                drawArrow(c.x1, c.y1); drawArrow(c.x2, c.y2);
+                drawArrow(c.x1, c.y1, (stoneQuad[0].x+stoneQuad[2].x)/2, (stoneQuad[0].y+stoneQuad[2].y)/2); 
+                drawArrow(c.x2, c.y2, (stoneQuad[0].x+stoneQuad[2].x)/2, (stoneQuad[0].y+stoneQuad[2].y)/2);
+                ctx.fillStyle='#ff4d4f'; ctx.font='bold 16px Arial'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+                const mx = (c.x1+c.x2)/2; const my = (c.y1+c.y2)/2;
+                ctx.lineWidth = 3; ctx.strokeStyle = 'white'; ctx.strokeText(i+1, mx, my);
+                ctx.lineWidth = 1; ctx.fillText(i+1, mx, my);
             }
         });
     }
-    function drawArrow(x, y) { ctx.beginPath(); ctx.arc(x, y, DOT_RADIUS, 0, 2*Math.PI); ctx.fillStyle='black'; ctx.fill(); }
-    function calcResults() {
+    function drawArrow(x, y, cx, cy) {
+        const size = 10; let dx = cx - x; let dy = cy - y;
+        let len = Math.sqrt(dx*dx + dy*dy); if(len===0) {dx=1; dy=0; len=1;}
+        const udx = dx/len; const udy = dy/len;
+        ctx.fillStyle = 'black'; ctx.beginPath(); ctx.moveTo(x, y); 
+        const angle = Math.atan2(udy, udx);
+        const bx1 = x - size * Math.cos(angle - Math.PI/7); const by1 = y - size * Math.sin(angle - Math.PI/7);
+        const bx2 = x - size * Math.cos(angle + Math.PI/7); const by2 = y - size * Math.sin(angle + Math.PI/7);
+        ctx.lineTo(bx1, by1); ctx.lineTo(bx2, by2); ctx.closePath(); ctx.fill();
+    }
+    function calculateResults() {
         if(!stoneQuad) return;
         const w1 = dist(stoneQuad[0], stoneQuad[1].x, stoneQuad[1].y); const w2 = dist(stoneQuad[3], stoneQuad[2].x, stoneQuad[2].y); const W = (w1+w2)/2;
         const h1 = dist(stoneQuad[0], stoneQuad[3].x, stoneQuad[3].y); const h2 = dist(stoneQuad[1], stoneQuad[2].x, stoneQuad[2].y); const H = (h1+h2)/2;
