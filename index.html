@@ -3,17 +3,19 @@
 <head>
     <title>Corner Size Measure</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <!-- Markdown for AI Text -->
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <style>
         :root {
             --primary: #1890ff;
             --accent: #ff4d4f;
-            --ai-color: #8e44ad;
-            --bg-dark: #222;
+            --bg-dark: #121212;
             --bg-panel: #fff;
             --text-main: #333;
-            --text-sub: #666;
+            --handle-height: 85px; /* Height of the visible bottom bar */
         }
+
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 
         body { 
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; 
@@ -22,329 +24,318 @@
             display: flex; 
             height: 100vh; 
             overflow: hidden; 
+            flex-direction: column; /* Mobile Default */
         }
 
-        /* --- LAYOUT --- */
-        .sidebar { 
-            flex: 0 0 320px; 
-            background: var(--bg-panel); 
-            padding: 20px; 
-            box-shadow: 4px 0 15px rgba(0,0,0,0.3); 
-            display: flex; 
-            flex-direction: column; 
-            overflow-y: auto; 
-            z-index: 20; 
-            padding-bottom: 100px;
-        }
-
+        /* --- MAIN IMAGE AREA --- */
         .main-area { 
             flex: 1; 
-            display: flex; 
-            flex-direction: column; 
-            min-width: 0; 
             position: relative; 
-            background: #1a1a1a;
+            overflow: hidden; 
+            display: flex; 
+            flex-direction: column;
+            background: #000;
         }
 
-        /* --- CANVAS CONTAINER (Fixed Scrolling) --- */
         .canvas-container { 
             flex: 1; 
             position: relative; 
-            overflow: auto; /* Enable scrolling */
-            /* Grid handles centering + overflow better than Flex */
-            display: grid; 
-            place-items: center; 
-            touch-action: pan-x pan-y; /* Allow browser panning */
-            padding: 40px; 
-            background-color: #1a1a1a;
+            overflow: auto; /* Allow Panning */
+            display: flex; 
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+            padding-bottom: var(--handle-height); /* Space for bottom bar */
+            touch-action: none; /* We handle gestures manually */
         }
         
         canvas { 
             display: block; 
             background: white; 
-            box-shadow: 0 0 50px rgba(0,0,0,0.5); 
-            /* Touch action is managed by JS logic */
+            box-shadow: 0 0 50px rgba(255,255,255,0.1); 
         }
 
-        /* --- TOOLBAR --- */
-        .toolbar { 
-            background: #333; 
-            padding: 12px 20px; 
-            display: flex; 
-            gap: 20px; 
-            align-items: center; 
-            z-index: 10; 
-            color: #eee;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+        /* --- BOTTOM SHEET / SIDEBAR --- */
+        .sidebar { 
+            position: fixed;
+            bottom: 0; left: 0; right: 0;
+            background: var(--bg-panel); 
+            z-index: 100;
+            border-top-left-radius: 20px;
+            border-top-right-radius: 20px;
+            box-shadow: 0 -5px 30px rgba(0,0,0,0.5);
+            transition: transform 0.3s cubic-bezier(0.25, 1, 0.5, 1);
+            transform: translateY(calc(100% - var(--handle-height))); /* Collapsed by default */
+            height: 85vh; /* Max height when expanded */
+            display: flex;
+            flex-direction: column;
         }
-        .toolbar label { font-weight: 600; font-size: 0.9rem; white-space: nowrap; }
 
-        input[type=range] { -webkit-appearance: none; width: 120px; background: transparent; }
-        input[type=range]:focus { outline: none; }
-        input[type=range]::-webkit-slider-runnable-track { width: 100%; height: 4px; cursor: pointer; background: #666; border-radius: 2px; }
-        input[type=range]::-webkit-slider-thumb { height: 16px; width: 16px; border-radius: 50%; background: var(--primary); cursor: pointer; -webkit-appearance: none; margin-top: -6px; box-shadow: 0 0 5px rgba(0,0,0,0.3); }
+        .sidebar.expanded { transform: translateY(0); }
+
+        /* The Always-Visible Handle Bar */
+        .sheet-header {
+            height: var(--handle-height);
+            padding: 10px 20px;
+            background: #fff;
+            border-top-left-radius: 20px;
+            border-top-right-radius: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            border-bottom: 1px solid #eee;
+            flex-shrink: 0;
+        }
+
+        .pull-pill {
+            width: 40px; height: 5px; 
+            background: #ccc; 
+            border-radius: 10px; 
+            margin-bottom: 15px;
+        }
+
+        .header-controls {
+            width: 100%;
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        /* Content inside the sheet */
+        .sheet-content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+            -webkit-overflow-scrolling: touch;
+            padding-bottom: 50px;
+        }
+
+        /* --- DESKTOP OVERRIDES --- */
+        @media (min-width: 769px) {
+            body { flex-direction: row; }
+            .sidebar { 
+                position: relative; 
+                flex: 0 0 340px; 
+                transform: none; 
+                height: 100vh; 
+                border-radius: 0;
+            }
+            .sheet-header { height: auto; border-bottom: none; display: block; }
+            .pull-pill { display: none; }
+            .sidebar.expanded { transform: none; }
+            .canvas-container { padding-bottom: 20px; touch-action: auto; }
+        }
 
         /* --- UI ELEMENTS --- */
-        h2 { margin-top: 0; font-size: 1.2rem; color: var(--text-main); display: flex; align-items: center; }
-        h3 { font-size: 0.8rem; color: var(--text-sub); margin: 20px 0 10px 0; text-transform: uppercase; letter-spacing: 1px; border-bottom: 1px solid #eee; padding-bottom: 5px; font-weight: 700; }
-
-        .file-input-wrapper { margin-bottom: 15px; }
-        input[type="file"] { width: 100%; padding: 12px; background: #f5f5f5; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; font-size: 0.9rem; }
+        .file-btn-wrapper {
+            position: relative;
+            flex: 1;
+            overflow: hidden;
+            display: inline-block;
+        }
+        .file-btn {
+            width: 100%;
+            border: 2px dashed #bbb;
+            color: #555;
+            background: #f8f8f8;
+            padding: 10px;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            text-align: center;
+        }
+        .file-input-wrapper input[type=file] {
+            font-size: 100px;
+            position: absolute;
+            left: 0; top: 0; opacity: 0;
+            width: 100%; height: 100%; cursor: pointer;
+        }
 
         button { 
             width: 100%; padding: 12px; margin-bottom: 8px; 
             cursor: pointer; border: 1px solid #ddd; border-radius: 8px; background: #fff; 
-            text-align: left; transition: all 0.2s; font-weight: 500; display: flex; align-items: center; justify-content: space-between; font-size: 0.95rem;
+            text-align: left; transition: background 0.2s; font-weight: 500; display: flex; align-items: center; justify-content: space-between; font-size: 0.95rem;
         }
-        button:hover { background: #f0f7ff; border-color: var(--primary); }
+        button:active { background: #f0f0f0; }
         button.active { background: #e6f7ff; border-color: var(--primary); color: var(--primary); font-weight: 600; }
         button.completed { border-left: 4px solid #52c41a; }
 
         button.action-btn { 
             background: var(--primary); color: white; border: none;
-            text-align: center; justify-content: center;
+            text-align: center; justify-content: center; box-shadow: 0 4px 12px rgba(24,144,255,0.3);
         }
-        button.action-btn:hover { background: #40a9ff; color: white; }
-        button.action-btn:active { transform: translateY(1px); }
+        button.action-btn:active { opacity: 0.8; }
 
-        button.ai-btn {
-            background: linear-gradient(135deg, #8e44ad 0%, #3498db 100%);
-            color: white; border: none; text-align: center; justify-content: center;
-            font-weight: bold; box-shadow: 0 4px 10px rgba(142, 68, 173, 0.3);
-        }
-
+        .small-btn-group { display: flex; gap: 10px; margin-bottom: 15px; }
         button.small-btn {
-            padding: 8px; font-size: 0.85rem; width: 48%; display: inline-block; text-align: center;
-            background: #f0f0f0; border: 1px solid #ccc; justify-content: center;
+            padding: 8px; font-size: 0.85rem; width: 50%; display: flex; text-align: center; justify-content: center;
+            background: #f0f0f0; border: 1px solid #ccc; margin: 0;
         }
-        button.small-btn:hover { background: #e0e0e0; }
 
-        .status-dot { height: 8px; width: 8px; background: #ddd; border-radius: 50%; display: inline-block; }
-        button.active .status-dot { background: var(--primary); box-shadow: 0 0 0 2px rgba(24,144,255,0.2); }
-        button.completed .status-dot { background: #52c41a; }
+        h3 { font-size: 0.8rem; color: #666; margin: 15px 0 8px 0; text-transform: uppercase; letter-spacing: 1px; font-weight: 700; }
 
-        .instructions { font-size: 0.85rem; color: #666; margin-top: 15px; line-height: 1.5; background: #f9f9f9; padding: 12px; border-radius: 8px; border: 1px solid #eee; }
-
-        /* --- RESULTS PANEL --- */
+        /* Results */
         .results { background: #f6ffed; border: 1px solid #b7eb8f; padding: 15px; border-radius: 8px; margin-top: 20px; font-size: 14px; }
         .result-row { display: flex; justify-content: space-between; margin-bottom: 6px; color: #555; }
         .result-row.sub { margin-left: 12px; color: #888; font-size: 0.85rem; border-bottom: 1px dashed #eee; padding-bottom: 2px; }
         .result-row.main { font-size: 1.1rem; font-weight: 700; margin-top: 15px; border-top: 1px solid #d9d9d9; padding-top: 10px; color: #333; display: flex; align-items: center; }
         
+        .status-dot { height: 8px; width: 8px; background: #ddd; border-radius: 50%; display: inline-block; }
+        button.active .status-dot { background: var(--primary); }
         .color-box { width: 12px; height: 12px; display: inline-block; margin-right: 10px; border-radius: 3px; vertical-align: middle; }
         .box-color { background: var(--primary); }
         .corner-color { background: var(--danger); }
 
-        /* --- TOOLTIPS --- */
+        /* Floating Info */
         .info-icon {
             display: inline-flex; justify-content: center; align-items: center;
-            width: 20px; height: 20px; background: #ccc; color: white;
+            width: 20px; height: 20px; background: #eee; color: #555;
             border-radius: 50%; font-size: 12px; font-weight: bold; font-family: serif;
-            margin-left: 8px; cursor: help; flex-shrink: 0; transition: background 0.2s;
+            margin-left: 8px; cursor: help; flex-shrink: 0;
         }
-        .info-icon:hover { background: #888; }
-
-        /* AI Modal & Tooltips */
+        
         #globalTooltip {
-            position: fixed; background: rgba(30, 30, 30, 0.95); color: #fff; 
-            padding: 16px; border-radius: 8px; font-size: 14px; line-height: 1.6; 
-            max-width: 280px; box-shadow: 0 10px 40px rgba(0,0,0,0.5); 
-            z-index: 99999; display: none; white-space: pre-wrap; 
-            border: 1px solid #555; pointer-events: none;
+            position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            background: rgba(30, 30, 30, 0.95); color: #fff; padding: 20px; border-radius: 12px;
+            font-size: 15px; line-height: 1.6; width: 85%; max-width: 320px;
+            box-shadow: 0 10px 50px rgba(0,0,0,0.8); z-index: 99999; display: none; white-space: pre-wrap; 
+            border: 1px solid #555; pointer-events: auto;
         }
-        
-        #aiModal {
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.8); z-index: 100000;
-            display: none; align-items: center; justify-content: center;
+        #globalTooltip::after {
+            content: 'Tap to close'; display: block; margin-top: 15px; font-size: 12px; color: #999; text-align: center; border-top: 1px solid #555; padding-top: 10px;
         }
-        .ai-content {
-            background: white; width: 90%; max-width: 500px; max-height: 80vh;
-            border-radius: 16px; padding: 25px; overflow-y: auto;
-            box-shadow: 0 20px 50px rgba(0,0,0,0.5); font-size: 15px; color: #333;
-        }
-        .ai-header { font-size: 1.2rem; font-weight: bold; margin-bottom: 15px; color: var(--ai-color); display: flex; justify-content: space-between; }
-        .close-modal { cursor: pointer; font-size: 24px; color: #999; }
 
-        /* --- MOBILE RESPONSIVE --- */
-        @media (max-width: 768px) {
-            body { flex-direction: column; }
-            
-            .sidebar { 
-                order: 2; height: 50%; width: 100%; 
-                box-shadow: 0 -4px 20px rgba(0,0,0,0.2); 
-                /* Rounded corners for mobile panel */
-                border-top-left-radius: 20px; 
-                border-top-right-radius: 20px; 
-                overflow: hidden; /* Ensure content doesn't bleed corners */
-            }
-            /* Inner wrapper to allow scroll without clipping corners */
-            .sidebar-content {
-                height: 100%; overflow-y: auto; padding: 20px;
-            }
-            
-            .main-area { order: 1; height: 50%; }
-            
-            /* Mobile Centered Modal Tooltip */
-            #globalTooltip {
-                top: 50% !important; left: 50% !important; transform: translate(-50%, -50%) !important;
-                width: 80%; max-width: 340px; background: #222; pointer-events: auto;
-                box-shadow: 0 0 100px rgba(0,0,0,0.9); border: 1px solid #444;
-            }
-            #globalTooltip::after {
-                content: '(Tap anywhere to close)'; display: block; margin-top: 15px; padding-top: 10px; border-top: 1px solid #444;
-                font-size: 12px; color: #888; text-align: center; font-style: italic;
-            }
-        }
-        
-        /* Desktop Sidebar padding handled directly */
-        @media (min-width: 769px) {
-            .sidebar-content { height: 100%; overflow-y: auto; padding-right: 5px; }
+        /* Zoom Label */
+        .zoom-badge {
+            position: absolute; top: 20px; right: 20px; 
+            background: rgba(0,0,0,0.6); color: white; 
+            padding: 5px 10px; border-radius: 20px; font-size: 12px; font-weight: bold;
+            pointer-events: none; z-index: 5;
         }
     </style>
 </head>
 <body>
 
     <div id="globalTooltip" onclick="this.style.display='none'"></div>
-
-    <!-- AI Modal -->
-    <div id="aiModal">
-        <div class="ai-content">
-            <div class="ai-header">
-                <span>Gemologist AI ✨</span>
-                <span class="close-modal" onclick="document.getElementById('aiModal').style.display='none'">&times;</span>
-            </div>
-            <div id="aiResult">Loading...</div>
-        </div>
-    </div>
-
-    <div class="sidebar">
-        <div class="sidebar-content">
-            <h2>
-                Corner Size 
-                <span class="info-icon" data-tooltip="Tool Purpose:&#10;&#10;Measures 'Corner Size' of Emerald Cut diamonds.&#10;&#10;1. Outline: Blue Box.&#10;2. Corners: Red Lines.&#10;3. Grades: VEN & AG.">i</span>
-            </h2>
-            
-            <div class="file-input-wrapper">
-                <input type="file" id="imageLoader" accept="image/*">
-            </div>
-
-            <button class="action-btn" onclick="drawDefaultShape()">Reset to Default Shape</button>
-
-            <h3>1. Stone Outline</h3>
-            <button id="btnBox" onclick="selectTool('box')">
-                <span><span class="color-box box-color"></span>Adjust Blue Box</span>
-                <span class="status-dot"></span>
-            </button>
-
-            <h3>2. Corner Cuts</h3>
-            <div style="display:flex; justify-content:space-between; margin-bottom:10px;">
-                 <button class="small-btn" onclick="setCornersPercentage(0.18)">Preset 18%</button>
-                 <button class="small-btn" onclick="setCornersPercentage(0.35)">Preset 35%</button>
-            </div>
-            <button id="btnC1" onclick="selectTool(0)"><span><span class="color-box corner-color"></span>Top Left (1)</span><span class="status-dot"></span></button>
-            <button id="btnC2" onclick="selectTool(1)"><span><span class="color-box corner-color"></span>Top Right (2)</span><span class="status-dot"></span></button>
-            <button id="btnC3" onclick="selectTool(2)"><span><span class="color-box corner-color"></span>Bottom Right (3)</span><span class="status-dot"></span></button>
-            <button id="btnC4" onclick="selectTool(3)"><span><span class="color-box corner-color"></span>Bottom Left (4)</span><span class="status-dot"></span></button>
-
-            <div class="results" id="resultsPanel" style="display:none;">
-                <h3>Results</h3>
-                <div class="result-row"><span>Dimensions:</span> <span id="resDim" style="font-weight:bold;">--</span></div>
-                <div class="result-row sub"><span>Top Left (1):</span> <span id="resC1">--</span></div>
-                <div class="result-row sub"><span>Top Right (2):</span> <span id="resC2">--</span></div>
-                <div class="result-row sub"><span>Bottom Right (3):</span> <span id="resC3">--</span></div>
-                <div class="result-row sub"><span>Bottom Left (4):</span> <span id="resC4">--</span></div>
-                <div class="result-row"><span>Avg Corner Size:</span> <span id="resAvgCorner" style="font-weight:bold;">--</span></div>
-                
-                <div class="result-row main">
-                    <span>VEN Method <span class="info-icon" data-tooltip="VEN Method (Industry Standard)&#10;&#10;Formula: Corner / Average(Length, Width)&#10;&#10;Logic: Physical Volume.&#10;This method averages the stone's overall dimensions first (finding the 'mean diameter'), and then compares the corner size to that average.&#10;&#10;Effect: It yields a lower percentage for elongated stones because the long length 'dilutes' the ratio.">i</span></span>
-                    <span id="resInd" style="color: #d4380d;">--%</span>
-                </div>
-                
-                <div class="result-row main" style="margin-top:10px; border:none; padding:0;">
-                    <span>AG Method <span class="info-icon" data-tooltip="AG Method (Visual Impact)&#10;&#10;Formula: Average of [ (Corner/Length) and (Corner/Width) ]&#10;&#10;Logic: Visual Proportions.&#10;This method calculates the percentage of the corner relative to the Width and relative to the Length separately, and then averages those two percentages.&#10;&#10;Effect: It yields a slightly higher percentage that better reflects how 'heavy' or steep the corners appear on the narrow sides of the stone.">i</span></span>
-                    <span id="resAG" style="color: #389e0d;">--%</span>
-                </div>
-                
-                <button class="ai-btn" style="margin-top: 15px; width:100%;" onclick="runDataAnalysis()">AI Cut Analysis ✨</button>
-            </div>
-            
-            <div class="instructions">
-                <strong>How to Adjust:</strong><br>
-                • Drag the <strong>Blue Lines</strong> to frame the stone.<br>
-                • Drag the <strong>Black Arrows</strong> along the line to mark where the corner cut starts.
-            </div>
-            
-            <!-- Extra space for bottom scrolling on mobile -->
-            <div style="height: 60px;"></div>
-        </div>
-    </div>
-
+    
+    <!-- MAIN CANVAS AREA -->
     <div class="main-area">
-        <div class="toolbar">
-            <label>Zoom:</label>
-            <input type="range" id="zoomSlider" min="1" max="5" step="0.1" value="1">
-            <span id="zoomVal" class="zoom-label">1.0x</span>
-        </div>
+        <div class="zoom-badge" id="zoomVal">1.0x</div>
         <div class="canvas-container" id="canvasContainer">
             <canvas id="canvas"></canvas>
         </div>
     </div>
 
+    <!-- BOTTOM SHEET -->
+    <div class="sidebar" id="bottomSheet">
+        <!-- Always Visible Header -->
+        <div class="sheet-header" id="sheetHandle">
+            <div class="pull-pill"></div>
+            <div class="header-controls">
+                <div class="file-btn-wrapper">
+                    <div class="file-btn">📂 Choose Photo</div>
+                    <div class="file-input-wrapper"><input type="file" id="imageLoader" accept="image/*"></div>
+                </div>
+                <button class="action-btn" style="width: auto; padding: 10px 20px; margin:0; flex: 1;" onclick="drawDefaultShape()">Reset Shape</button>
+            </div>
+        </div>
+
+        <!-- Scrollable Content -->
+        <div class="sheet-content">
+            <h3 style="margin-top:0;">1. Frame Stone</h3>
+            <button id="btnBox" onclick="selectTool('box')">
+                <span><span class="color-box box-color"></span>Adjust Blue Box</span>
+                <span class="status-dot"></span>
+            </button>
+
+            <h3>2. Set Corners</h3>
+            <div class="small-btn-group">
+                 <button class="small-btn" onclick="setCornersPercentage(0.18)">Preset 18%</button>
+                 <button class="small-btn" onclick="setCornersPercentage(0.35)">Preset 35%</button>
+            </div>
+            <button id="btnC1" onclick="selectTool(0)"><span><span class="color-box corner-color"></span>Top Left (1)</span><span class="status-dot"></span></button>
+            <button id="btnC2" onclick="selectTool(1)"><span><span class="color-box corner-color"></span>Top Right (2)</span><span class="status-dot"></span></button>
+            <button id="btnC3" onclick="selectTool(2)"><span><span class="color-box corner-color"></span>Bot Right (3)</span><span class="status-dot"></span></button>
+            <button id="btnC4" onclick="selectTool(3)"><span><span class="color-box corner-color"></span>Bot Left (4)</span><span class="status-dot"></span></button>
+
+            <div class="results" id="resultsPanel" style="display:none;">
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <h3>Results</h3>
+                    <button class="action-btn" style="width:auto; padding:5px 10px; font-size:0.8rem;" onclick="runDataAnalysis()">AI Analysis ✨</button>
+                </div>
+                <div class="result-row"><span>Dimensions:</span> <span id="resDim" style="font-weight:bold;">--</span></div>
+                <div class="result-row sub"><span>TL:</span> <span id="resC1">--</span></div>
+                <div class="result-row sub"><span>TR:</span> <span id="resC2">--</span></div>
+                <div class="result-row sub"><span>BR:</span> <span id="resC3">--</span></div>
+                <div class="result-row sub"><span>BL:</span> <span id="resC4">--</span></div>
+                <div class="result-row"><span>Avg Corner:</span> <span id="resAvgCorner" style="font-weight:bold;">--</span></div>
+                <div class="result-row main"><span>VEN Method <span class="info-icon" data-tooltip="VEN Method: Corner / Avg(L,W)">i</span></span><span id="resInd" style="color: #d4380d;">--%</span></div>
+                <div class="result-row main" style="margin-top:10px; border:none; padding:0;"><span>AG Method <span class="info-icon" data-tooltip="AG Method: Avg(Corner/L, Corner/W)">i</span></span><span id="resAG" style="color: #389e0d;">--%</span></div>
+                <div id="aiResult" style="margin-top:15px; font-style:italic; font-size:0.9rem; color:#555;"></div>
+            </div>
+        </div>
+    </div>
+
 <script>
     // --- APP STATE ---
-    const apiKey = ""; // Fill API Key
+    const apiKey = ""; // API Key
     const canvas = document.getElementById('canvas');
     const ctx = canvas.getContext('2d');
     let img = new Image();
     
+    // Geometry
     let stoneQuad = null; 
     let corners = [null, null, null, null]; 
+    
+    // View & Interaction
     let fitScale = 1.0; 
     let currentMultiplier = 1.0; 
     let activeTool = null; 
     let isDragging = false; 
     let dragTarget = null; 
     let dragRatios = [null, null, null, null];
-    const LINE_WIDTH = 2; const DOT_RADIUS = 6; const SNAP_DIST = 30; const IMG_PAD = 60;
+    
+    // Pinch Zoom Vars
+    let initialPinchDist = 0;
+    let initialZoom = 1.0;
 
-    // --- INIT ---
-    document.getElementById('imageLoader').addEventListener('change', handleImage, false);
-    const zoomSlider = document.getElementById('zoomSlider');
-    const zoomValDisplay = document.getElementById('zoomVal');
-    zoomSlider.addEventListener('input', (e) => { currentMultiplier = parseFloat(e.target.value); applyZoom(); });
-    window.addEventListener('resize', () => { if(img.src) { calcBaseScale(); applyZoom(); } });
+    // Config
+    const LINE_WIDTH = 2; const DOT_RADIUS = 7; const SNAP_DIST = 35; const IMG_PAD = 80;
 
-    // --- TOOLTIPS ---
-    const tooltip = document.getElementById('globalTooltip');
-    const isMobile = () => window.innerWidth < 768;
-    document.querySelectorAll('.info-icon').forEach(icon => {
-        icon.addEventListener('click', (e) => {
-            e.stopPropagation();
-            tooltip.innerText = e.target.getAttribute('data-tooltip');
-            tooltip.style.display = 'block';
-        });
-        icon.addEventListener('mouseenter', (e) => {
-            if(!isMobile()) {
-                tooltip.innerText = e.target.getAttribute('data-tooltip');
-                tooltip.style.display = 'block';
-                moveTooltip(e);
-            }
-        });
-        icon.addEventListener('mousemove', (e) => { if(!isMobile()) moveTooltip(e); });
-        icon.addEventListener('mouseleave', () => { if(!isMobile()) tooltip.style.display = 'none'; });
+    // --- BOTTOM SHEET LOGIC ---
+    const bottomSheet = document.getElementById('bottomSheet');
+    const sheetHandle = document.getElementById('sheetHandle');
+    let sheetStartY = 0;
+    let isSheetDragging = false;
+
+    // Toggle on Tap
+    sheetHandle.addEventListener('click', (e) => {
+        if(e.target.tagName !== 'INPUT' && !e.target.closest('.file-btn-wrapper')) {
+            bottomSheet.classList.toggle('expanded');
+        }
     });
-    window.addEventListener('click', (e) => { if(!e.target.classList.contains('info-icon')) tooltip.style.display = 'none'; });
-    function moveTooltip(e) {
-        if(isMobile()) return;
-        let x = e.clientX + 20; let y = e.clientY;
-        const r = tooltip.getBoundingClientRect();
-        if(y + r.height > window.innerHeight) y = window.innerHeight - r.height - 10;
-        if(x + r.width > window.innerWidth) x = window.innerWidth - r.width - 10;
-        tooltip.style.left = x + 'px'; tooltip.style.top = y + 'px';
-    }
 
-    // --- IMAGE LOAD ---
+    // Drag Logic for Sheet
+    sheetHandle.addEventListener('touchstart', (e) => {
+        sheetStartY = e.touches[0].clientY;
+        isSheetDragging = true;
+    });
+    
+    sheetHandle.addEventListener('touchmove', (e) => {
+        if(!isSheetDragging) return;
+        const currentY = e.touches[0].clientY;
+        const delta = currentY - sheetStartY;
+        // Simple Logic: if dragged up 50px, expand. Down 50px, collapse.
+        if (delta < -50) bottomSheet.classList.add('expanded');
+        if (delta > 50) bottomSheet.classList.remove('expanded');
+    });
+
+    sheetHandle.addEventListener('touchend', () => { isSheetDragging = false; });
+
+
+    // --- IMAGE LOADING ---
+    document.getElementById('imageLoader').addEventListener('change', handleImage, false);
+    
     function handleImage(e){
         if (!e.target.files || !e.target.files[0]) return;
         const reader = new FileReader();
@@ -353,100 +344,104 @@
                 canvas.width = img.width + (IMG_PAD * 2);
                 canvas.height = img.height + (IMG_PAD * 2);
                 stoneQuad = null; corners = [null, null, null, null];
-                currentMultiplier = 1.0; zoomSlider.value = 1.0;
-                calcBaseScale(); applyZoom(); updateUI();
-                drawDefaultShape(); // MANUAL MODE
+                
+                // Auto Expand Sheet on load
+                bottomSheet.classList.add('expanded');
+                
+                calcBaseScale();
+                setZoom(1.0);
+                drawDefaultShape();
             }
             img.src = event.target.result;
         }
         reader.readAsDataURL(e.target.files[0]);
     }
 
+    // --- ZOOM & PAN LOGIC ---
+    const container = document.getElementById('canvasContainer');
+    
     function calcBaseScale() {
-        const container = document.getElementById('canvasContainer');
-        const availW = container.clientWidth; 
+        const availW = container.clientWidth;
         const availH = container.clientHeight;
         const scaleW = availW / canvas.width;
         const scaleH = availH / canvas.height;
         fitScale = Math.min(scaleW, scaleH);
-        if(isMobile() && fitScale > 1) fitScale = 1;
+        // On mobile, sometimes fitScale is too small, clamp min
+        if(fitScale > 1) fitScale = 1; 
     }
-    function applyZoom() {
-        if(!img.src) return;
+
+    function setZoom(mult) {
+        currentMultiplier = Math.max(1.0, Math.min(5.0, mult));
         const s = fitScale * currentMultiplier;
-        canvas.style.width = (canvas.width * s) + 'px'; canvas.style.height = (canvas.height * s) + 'px';
-        zoomValDisplay.innerText = currentMultiplier.toFixed(1) + "x";
+        canvas.style.width = (canvas.width * s) + 'px';
+        canvas.style.height = (canvas.height * s) + 'px';
+        document.getElementById('zoomVal').innerText = currentMultiplier.toFixed(1) + "x";
     }
 
-    // --- MANUAL DEFAULT ---
-    function drawDefaultShape() {
-        if(!img.src) return;
-        ctx.clearRect(0,0,canvas.width,canvas.height); ctx.drawImage(img, IMG_PAD, IMG_PAD);
-        const imgW = img.width; const imgH = img.height;
-        
-        let defH = imgH * 0.99; 
-        let defW = defH / 1.45; 
-        if (defW > imgW * 0.99) { defW = imgW * 0.99; defH = defW * 1.45; }
-
-        const cx = imgW/2 + IMG_PAD; const cy = imgH/2 + IMG_PAD;
-        const halfW = defW / 2; const halfH = defH / 2;
-        let minX=cx-halfW, maxX=cx+halfW, minY=cy-halfH, maxY=cy+halfH;
-        
-        stoneQuad = [{x:minX, y:minY}, {x:maxX, y:minY}, {x:maxX, y:maxY}, {x:minX, y:maxY}];
-        setCornersPercentage(0.18);
-    }
-
-    function setCornersPercentage(fraction) {
-        if(!stoneQuad) return;
-        const w = Math.hypot(stoneQuad[1].x-stoneQuad[0].x, stoneQuad[1].y-stoneQuad[0].y);
-        const h = Math.hypot(stoneQuad[3].x-stoneQuad[0].x, stoneQuad[3].y-stoneQuad[0].y);
-        const minDim = Math.min(w, h);
-        const dist = minDim * fraction;
-
-        function getPt(a, b, d) {
-            const tot = Math.hypot(b.x-a.x, b.y-a.y); if (tot===0) return a;
-            const t = d/tot; return { x: a.x+(b.x-a.x)*t, y: a.y+(b.y-a.y)*t };
-        }
-        corners[0] = { x1: getPt(stoneQuad[0], stoneQuad[1], dist).x, y1: getPt(stoneQuad[0], stoneQuad[1], dist).y, x2: getPt(stoneQuad[0], stoneQuad[3], dist).x, y2: getPt(stoneQuad[0], stoneQuad[3], dist).y };
-        corners[1] = { x1: getPt(stoneQuad[1], stoneQuad[0], dist).x, y1: getPt(stoneQuad[1], stoneQuad[0], dist).y, x2: getPt(stoneQuad[1], stoneQuad[2], dist).x, y2: getPt(stoneQuad[1], stoneQuad[2], dist).y };
-        corners[2] = { x1: getPt(stoneQuad[2], stoneQuad[3], dist).x, y1: getPt(stoneQuad[2], stoneQuad[3], dist).y, x2: getPt(stoneQuad[2], stoneQuad[1], dist).x, y2: getPt(stoneQuad[2], stoneQuad[1], dist).y };
-        corners[3] = { x1: getPt(stoneQuad[3], stoneQuad[2], dist).x, y1: getPt(stoneQuad[3], stoneQuad[2], dist).y, x2: getPt(stoneQuad[3], stoneQuad[0], dist).x, y2: getPt(stoneQuad[3], stoneQuad[0], dist).y };
-        updateUI(); draw();
-    }
-
-    // --- INTERACTION ---
-    // Handle both mouse and touch via normalized start/move/end
-    canvas.addEventListener('mousedown', e => start(getPos(e)));
-    canvas.addEventListener('mousemove', e => { 
-        const p = getPos(e); 
-        canvas.style.cursor = checkHandles(p) ? 'pointer' : 'default'; 
-        if(isDragging) move(p); 
-    });
-    canvas.addEventListener('mouseup', end);
-
-    canvas.addEventListener('touchstart', e => { 
-        if(e.touches.length===1) {
-            const p = getPos(e.touches[0]);
-            // If hitting a handle, we MUST preventDefault to stop scroll and start drag
-            if(checkHandles(p)) {
-                e.preventDefault(); 
-                start(p);
+    // --- TOUCH INTERACTION (ZOOM vs DRAG) ---
+    // Using pointer events for unified handling + touch gesture logic manually
+    
+    container.addEventListener('touchstart', (e) => {
+        if (e.touches.length === 2) {
+            // Pinch Start
+            initialPinchDist = Math.hypot(
+                e.touches[0].clientX - e.touches[1].clientX,
+                e.touches[0].clientY - e.touches[1].clientY
+            );
+            initialZoom = currentMultiplier;
+            e.preventDefault(); // Stop zoom
+        } else if (e.touches.length === 1) {
+            // Check if hitting handle. If so, start drag. Else allow Pan.
+            const pos = getPos(e.touches[0]);
+            const handle = checkHandles(pos);
+            if(handle) {
+                e.preventDefault(); // Stop pan, start drag
+                start(pos);
             }
         }
     }, {passive: false});
 
-    canvas.addEventListener('touchmove', e => { 
-        if(isDragging && e.touches.length===1) {
-            e.preventDefault(); // Stop scroll while dragging
+    container.addEventListener('touchmove', (e) => {
+        if (e.touches.length === 2) {
+            // Pinch Move
+            const dist = Math.hypot(
+                e.touches[0].clientX - e.touches[1].clientX,
+                e.touches[0].clientY - e.touches[1].clientY
+            );
+            const delta = dist / initialPinchDist;
+            setZoom(initialZoom * delta);
+            e.preventDefault();
+        } else if (e.touches.length === 1 && isDragging) {
+            // Drag Handle
+            e.preventDefault();
             move(getPos(e.touches[0]));
         }
     }, {passive: false});
 
-    canvas.addEventListener('touchend', end);
+    container.addEventListener('touchend', (e) => {
+        if(isDragging) end();
+    });
 
-    function getPos(e) { const r=canvas.getBoundingClientRect(); return { x:(e.clientX-r.left)*(canvas.width/r.width), y:(e.clientY-r.top)*(canvas.height/r.height) }; }
+    // Mouse Fallbacks
+    canvas.addEventListener('mousedown', e => start(getPos(e)));
+    window.addEventListener('mousemove', e => { if(isDragging) move(getPos(e)); });
+    window.addEventListener('mouseup', end);
+
+
+    // --- GEOMETRY LOGIC ---
+    function getPos(e) {
+        const r = canvas.getBoundingClientRect();
+        return { 
+            x: (e.clientX - r.left) * (canvas.width/r.width), 
+            y: (e.clientY - r.top) * (canvas.height/r.height) 
+        };
+    }
+
     function checkHandles(pos) {
-        const r = SNAP_DIST * 1.5;
+        if(!stoneQuad) return null;
+        const r = SNAP_DIST * 2; // Big hit area for touch
+        
+        // Priority 1: Corners
         for(let i=0; i<4; i++) {
             const c=corners[i];
             if(c) {
@@ -454,11 +449,16 @@
                 if(dist(pos, c.x2, c.y2)<r) return {type:'corner', idx:i, h:2};
             }
         }
-        if(stoneQuad) for(let i=0; i<4; i++) if(dist(pos, stoneQuad[i].x, stoneQuad[i].y)<r) return {type:'quad', idx:i};
+        // Priority 2: Blue Box
+        for(let i=0; i<4; i++) {
+            if(dist(pos, stoneQuad[i].x, stoneQuad[i].y)<r) return {type:'quad', idx:i};
+        }
         return null;
     }
+
     function start(pos) {
-        if(!img.src) return; dragTarget = checkHandles(pos);
+        if(!img.src) return;
+        dragTarget = checkHandles(pos);
         if(dragTarget) {
             isDragging = true;
             if(dragTarget.type === 'quad') {
@@ -474,6 +474,7 @@
             }
         }
     }
+
     function move(pos) {
         if(!dragTarget) return;
         if(dragTarget.type === 'quad') {
@@ -491,8 +492,43 @@
         }
         draw();
     }
-    function end() { isDragging = false; dragTarget = null; updateUI(); }
+    
+    function end() { if(isDragging) { isDragging = false; dragTarget = null; updateUI(); } }
 
+    function drawDefaultShape() {
+        if(!img.src) return;
+        ctx.clearRect(0,0,canvas.width,canvas.height); ctx.drawImage(img, IMG_PAD, IMG_PAD);
+        const imgW = img.width; const imgH = img.height;
+        
+        let defH = imgH * 0.99; let defW = defH / 1.45; 
+        if (defW > imgW * 0.99) { defW = imgW * 0.99; defH = defW * 1.45; }
+
+        const cx = imgW/2 + IMG_PAD; const cy = imgH/2 + IMG_PAD;
+        const halfW = defW/2; const halfH = defH/2;
+        let minX=cx-halfW, maxX=cx+halfW, minY=cy-halfH, maxY=cy+halfH;
+        
+        stoneQuad = [{x:minX, y:minY}, {x:maxX, y:minY}, {x:maxX, y:maxY}, {x:minX, y:maxY}];
+        setCornersPercentage(0.18);
+    }
+
+    function setCornersPercentage(fraction) {
+        if(!stoneQuad) return;
+        const w = dist(stoneQuad[0].x, stoneQuad[0].y, stoneQuad[1].x, stoneQuad[1].y);
+        const h = dist(stoneQuad[0].x, stoneQuad[0].y, stoneQuad[3].x, stoneQuad[3].y);
+        const d = Math.min(w, h) * fraction;
+        
+        function getPtAt(a, b, distVal) {
+            const tot = dist(a.x,a.y, b.x,b.y); if(tot===0) return a;
+            const t = distVal/tot; return { x: a.x+(b.x-a.x)*t, y: a.y+(b.y-a.y)*t };
+        }
+        corners[0] = { x1: getPtAt(stoneQuad[0], stoneQuad[1], d).x, y1: getPtAt(stoneQuad[0], stoneQuad[1], d).y, x2: getPtAt(stoneQuad[0], stoneQuad[3], d).x, y2: getPtAt(stoneQuad[0], stoneQuad[3], d).y };
+        corners[1] = { x1: getPtAt(stoneQuad[1], stoneQuad[0], d).x, y1: getPtAt(stoneQuad[1], stoneQuad[0], d).y, x2: getPtAt(stoneQuad[1], stoneQuad[2], d).x, y2: getPtAt(stoneQuad[1], stoneQuad[2], d).y };
+        corners[2] = { x1: getPtAt(stoneQuad[2], stoneQuad[3], d).x, y1: getPtAt(stoneQuad[2], stoneQuad[3], d).y, x2: getPtAt(stoneQuad[2], stoneQuad[1], d).x, y2: getPtAt(stoneQuad[2], stoneQuad[1], d).y };
+        corners[3] = { x1: getPtAt(stoneQuad[3], stoneQuad[2], d).x, y1: getPtAt(stoneQuad[3], stoneQuad[2], d).y, x2: getPtAt(stoneQuad[3], stoneQuad[0], d).x, y2: getPtAt(stoneQuad[3], stoneQuad[0], d).y };
+        updateUI(); draw();
+    }
+
+    function dist(x1, y1, x2, y2) { return Math.hypot(x1-x2, y1-y2); }
     function getRatio(px, py, a, b) { const dx=b.x-a.x, dy=b.y-a.y; if(dx*dx+dy*dy===0) return 0; return Math.max(0, Math.min(1, ((px-a.x)*dx+(py-a.y)*dy)/(dx*dx+dy*dy))); }
     function getP(t, a, b) { return { x: a.x + t*(b.x-a.x), y: a.y + t*(b.y-a.y) }; }
     function snapToQuad(p) {
@@ -500,22 +536,12 @@
         for(let i=0; i<4; i++) {
             const a=stoneQuad[i], b=stoneQuad[(i+1)%4];
             const t = Math.max(0, Math.min(1, getRatio(p.x,p.y,a,b)));
-            const cand = getP(t, a, b); const d = dist(p, cand.x, cand.y);
+            const cand = getP(t, a, b); const d = dist(p.x, p.y, cand.x, cand.y);
             if(d<minD) { minD=d; bestPt=cand; }
         }
         return bestPt;
     }
-    function selectTool(tool) { activeTool = tool; updateUI(); }
-    function updateUI() {
-        ['btnBox','btnC1','btnC2','btnC3','btnC4'].forEach(id => document.getElementById(id).classList.remove('active'));
-        if(activeTool==='box') document.getElementById('btnBox').classList.add('active');
-        else if(activeTool!==null) document.getElementById('btnC'+(activeTool+1)).classList.add('active');
-        if(stoneQuad) {
-            document.getElementById('btnBox').classList.add('completed');
-            corners.forEach((c,i) => { if(c) document.getElementById('btnC'+(i+1)).classList.add('completed'); });
-            calculateResults();
-        }
-    }
+
     function draw() {
         ctx.clearRect(0,0,canvas.width,canvas.height); if(img.src) ctx.drawImage(img, IMG_PAD, IMG_PAD);
         if(stoneQuad) {
@@ -532,63 +558,98 @@
                 ctx.beginPath(); ctx.moveTo(c.x1, c.y1); ctx.lineTo(c.x2, c.y2); ctx.stroke();
                 drawArrow(c.x1, c.y1, (stoneQuad[0].x+stoneQuad[2].x)/2, (stoneQuad[0].y+stoneQuad[2].y)/2); 
                 drawArrow(c.x2, c.y2, (stoneQuad[0].x+stoneQuad[2].x)/2, (stoneQuad[0].y+stoneQuad[2].y)/2);
-                ctx.fillStyle='#ff4d4f'; ctx.font='bold 16px Arial'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-                const mx = (c.x1+c.x2)/2; const my = (c.y1+c.y2)/2;
-                ctx.lineWidth = 3; ctx.strokeStyle = 'white'; ctx.strokeText(i+1, mx, my);
-                ctx.lineWidth = 1; ctx.fillText(i+1, mx, my);
             }
         });
     }
+
     function drawArrow(x, y, cx, cy) {
-        const size = 10; let dx = cx - x; let dy = cy - y;
-        let len = Math.sqrt(dx*dx + dy*dy); if(len===0) {dx=1; dy=0; len=1;}
-        const udx = dx/len; const udy = dy/len;
+        const size = 12; const dx = cx-x; const dy = cy-y;
+        const len = Math.sqrt(dx*dx+dy*dy); const udx = dx/len; const udy = dy/len;
         ctx.fillStyle = 'black'; ctx.beginPath(); ctx.moveTo(x, y); 
         const angle = Math.atan2(udy, udx);
-        const bx1 = x - size * Math.cos(angle - Math.PI/7); const by1 = y - size * Math.sin(angle - Math.PI/7);
-        const bx2 = x - size * Math.cos(angle + Math.PI/7); const by2 = y - size * Math.sin(angle + Math.PI/7);
-        ctx.lineTo(bx1, by1); ctx.lineTo(bx2, by2); ctx.closePath(); ctx.fill();
+        ctx.lineTo(x - size*Math.cos(angle-Math.PI/7), y - size*Math.sin(angle-Math.PI/7));
+        ctx.lineTo(x - size*Math.cos(angle+Math.PI/7), y - size*Math.sin(angle+Math.PI/7));
+        ctx.closePath(); ctx.fill();
     }
-    function calculateResults() {
+
+    function updateUI() {
+        if(stoneQuad) {
+            document.getElementById('resultsPanel').style.display='block';
+            calcResults();
+        }
+    }
+    
+    function selectTool(i) {} // No longer needed logic, kept for ref
+
+    function calcResults() {
         if(!stoneQuad) return;
-        const w1 = dist(stoneQuad[0], stoneQuad[1].x, stoneQuad[1].y); const w2 = dist(stoneQuad[3], stoneQuad[2].x, stoneQuad[2].y); const W = (w1+w2)/2;
-        const h1 = dist(stoneQuad[0], stoneQuad[3].x, stoneQuad[3].y); const h2 = dist(stoneQuad[1], stoneQuad[2].x, stoneQuad[2].y); const H = (h1+h2)/2;
+        const w1 = dist(stoneQuad[0].x, stoneQuad[0].y, stoneQuad[1].x, stoneQuad[1].y);
+        const w2 = dist(stoneQuad[3].x, stoneQuad[3].y, stoneQuad[2].x, stoneQuad[2].y);
+        const W = (w1+w2)/2;
+        const h1 = dist(stoneQuad[0].x, stoneQuad[0].y, stoneQuad[3].x, stoneQuad[3].y);
+        const h2 = dist(stoneQuad[1].x, stoneQuad[1].y, stoneQuad[2].x, stoneQuad[2].y);
+        const H = (h1+h2)/2;
+        
         const L_stone = Math.max(W, H); const W_stone = Math.min(W, H);
         let sumC = 0; let n = 0;
         corners.forEach((c,i) => {
-            let s = "--"; if(c) { const len = dist({x:c.x1, y:c.y1}, c.x2, c.y2); sumC += len; n++; s = len.toFixed(1) + " px"; }
+            let s = "--"; if(c) { const len = dist(c.x1, c.y1, c.x2, c.y2); sumC += len; n++; s = len.toFixed(1) + " px"; }
             document.getElementById('resC'+(i+1)).innerText = s;
         });
-        if(n === 0) { document.getElementById('resultsPanel').style.display='none'; return; }
-        const avgC = sumC / n;
-        document.getElementById('resultsPanel').style.display='block';
-        document.getElementById('resDim').innerText = Math.round(L_stone) + " x " + Math.round(W_stone);
-        document.getElementById('resAvgCorner').innerText = avgC.toFixed(1) + " px";
-        const ven = (avgC / ((L_stone+W_stone)/2)) * 100;
-        const ag = ((avgC/L_stone)*100 + (avgC/W_stone)*100) / 2;
-        document.getElementById('resInd').innerText = ven.toFixed(2) + "%";
-        document.getElementById('resAG').innerText = ag.toFixed(2) + "%";
-    }
-    function dist(p1, x2, y2) { return Math.hypot(p1.x-x2, p1.y-y2); }
-    function distPt(x1, y1, x2, y2) { return Math.hypot(x1-x2, y1-y2); }
 
-    // --- AI ---
-    async function runDataAnalysis() {
-        if(!apiKey) { showAIModal("Please set 'const apiKey' in the code."); return; }
-        const data = { dim: document.getElementById('resDim').innerText, avg: document.getElementById('resAvgCorner').innerText, ven: document.getElementById('resInd').innerText, ag: document.getElementById('resAG').innerText };
-        showAIModal("Gemini Analysis...");
-        try { const res = await callGemini(`Analyze these Emerald Cut diamond specs: ${JSON.stringify(data)}. Are the corners classic or truncated?`); document.getElementById('aiResult').innerHTML = marked.parse(res); } catch(e) { document.getElementById('aiResult').innerText = "Error: " + e; }
+        if(n > 0) {
+            const avgC = sumC / n;
+            document.getElementById('resDim').innerText = Math.round(L_stone) + " x " + Math.round(W_stone);
+            document.getElementById('resAvgCorner').innerText = avgC.toFixed(1) + " px";
+            const ven = (avgC / ((L_stone+W_stone)/2)) * 100;
+            const ag = ((avgC/L_stone)*100 + (avgC/W_stone)*100) / 2;
+            document.getElementById('resInd').innerText = ven.toFixed(2) + "%";
+            document.getElementById('resAG').innerText = ag.toFixed(2) + "%";
+        }
     }
-    function showAIModal(msg) { document.getElementById('aiModal').style.display = 'flex'; document.getElementById('aiResult').innerHTML = `<em>${msg}</em>`; }
-    async function callGemini(text, b64=null) {
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
-        const body = { contents: [{ parts: [{ text: text }] }] };
-        if(b64) body.contents[0].parts.push({ inline_data: { mime_type: "image/jpeg", data: b64 }});
-        const resp = await fetch(url, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body) });
-        const json = await resp.json();
-        return json.candidates?.[0]?.content?.parts?.[0]?.text || "No response";
+    
+    // --- TOOLTIP ---
+    const tooltips = document.querySelectorAll('.info-icon');
+    const globalTip = document.getElementById('globalTooltip');
+    tooltips.forEach(t => t.addEventListener('click', e => {
+        e.stopPropagation();
+        globalTip.innerText = t.getAttribute('data-tooltip');
+        globalTip.style.display = 'block';
+    }));
+    window.addEventListener('click', e => {
+        if(!e.target.classList.contains('info-icon')) globalTip.style.display = 'none';
+    });
+
+    // --- AI ANALYSIS ---
+    async function runDataAnalysis() {
+        if(!apiKey) { alert("Please add your API Key in the code to use AI features."); return; }
+        const data = {
+            dim: document.getElementById('resDim').innerText,
+            avg: document.getElementById('resAvgCorner').innerText,
+            ven: document.getElementById('resInd').innerText,
+            ag: document.getElementById('resAG').innerText
+        };
+        document.getElementById('aiModal').style.display = 'flex';
+        document.getElementById('aiResult').innerHTML = "Analyzing...";
+        
+        try {
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
+            const prompt = `Analyze these Emerald Cut diamond measurements. Dimensions: ${data.dim}, Avg Corner: ${data.avg}, VEN Grade: ${data.ven}, AG Grade: ${data.ag}. Is this corner size considered standard, truncated, or large for an emerald cut? Keep it brief.`;
+            
+            const resp = await fetch(url, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+            });
+            const json = await resp.json();
+            const text = json.candidates?.[0]?.content?.parts?.[0]?.text || "No analysis available.";
+            document.getElementById('aiResult').innerHTML = marked.parse(text);
+        } catch(e) {
+            document.getElementById('aiResult').innerText = "Error: " + e.message;
+        }
     }
 </script>
 </body>
 </html>
+
 
