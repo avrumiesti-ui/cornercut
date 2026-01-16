@@ -2,8 +2,7 @@
 <html>
 <head>
     <title>Corner Size Measure</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <!-- Markdown for AI Text -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <style>
         :root {
@@ -47,22 +46,24 @@
             background: #1a1a1a;
         }
 
-        /* --- CANVAS --- */
+        /* --- CANVAS CONTAINER (Fixed Scrolling) --- */
         .canvas-container { 
             flex: 1; 
             position: relative; 
-            overflow: auto; 
-            display: flex; 
-            touch-action: none; 
+            overflow: auto; /* Enable scrolling */
+            /* Grid handles centering + overflow better than Flex */
+            display: grid; 
+            place-items: center; 
+            touch-action: pan-x pan-y; /* Allow browser panning */
             padding: 40px; 
+            background-color: #1a1a1a;
         }
         
         canvas { 
             display: block; 
             background: white; 
             box-shadow: 0 0 50px rgba(0,0,0,0.5); 
-            margin: auto; 
-            transform-origin: center center;
+            /* Touch action is managed by JS logic */
         }
 
         /* --- TOOLBAR --- */
@@ -106,15 +107,12 @@
         button.action-btn:hover { background: #40a9ff; color: white; }
         button.action-btn:active { transform: translateY(1px); }
 
-        /* AI Button */
         button.ai-btn {
             background: linear-gradient(135deg, #8e44ad 0%, #3498db 100%);
             color: white; border: none; text-align: center; justify-content: center;
             font-weight: bold; box-shadow: 0 4px 10px rgba(142, 68, 173, 0.3);
         }
-        button.ai-btn:hover { box-shadow: 0 6px 15px rgba(142, 68, 173, 0.5); transform: translateY(-1px); }
 
-        /* Small Preset Buttons */
         button.small-btn {
             padding: 8px; font-size: 0.85rem; width: 48%; display: inline-block; text-align: center;
             background: #f0f0f0; border: 1px solid #ccc; justify-content: center;
@@ -168,11 +166,26 @@
         .ai-header { font-size: 1.2rem; font-weight: bold; margin-bottom: 15px; color: var(--ai-color); display: flex; justify-content: space-between; }
         .close-modal { cursor: pointer; font-size: 24px; color: #999; }
 
+        /* --- MOBILE RESPONSIVE --- */
         @media (max-width: 768px) {
             body { flex-direction: column; }
-            .sidebar { order: 2; height: 50%; width: 100%; box-shadow: 0 -4px 20px rgba(0,0,0,0.2); border-top-left-radius: 20px; border-top-right-radius: 20px; }
+            
+            .sidebar { 
+                order: 2; height: 50%; width: 100%; 
+                box-shadow: 0 -4px 20px rgba(0,0,0,0.2); 
+                /* Rounded corners for mobile panel */
+                border-top-left-radius: 20px; 
+                border-top-right-radius: 20px; 
+                overflow: hidden; /* Ensure content doesn't bleed corners */
+            }
+            /* Inner wrapper to allow scroll without clipping corners */
+            .sidebar-content {
+                height: 100%; overflow-y: auto; padding: 20px;
+            }
+            
             .main-area { order: 1; height: 50%; }
             
+            /* Mobile Centered Modal Tooltip */
             #globalTooltip {
                 top: 50% !important; left: 50% !important; transform: translate(-50%, -50%) !important;
                 width: 80%; max-width: 340px; background: #222; pointer-events: auto;
@@ -182,12 +195,11 @@
                 content: '(Tap anywhere to close)'; display: block; margin-top: 15px; padding-top: 10px; border-top: 1px solid #444;
                 font-size: 12px; color: #888; text-align: center; font-style: italic;
             }
-            
-            .toolbar {
-                 position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%);
-                 background: rgba(30,30,30,0.8); border-radius: 30px; border: 1px solid #555;
-                 backdrop-filter: blur(10px); width: 90%;
-            }
+        }
+        
+        /* Desktop Sidebar padding handled directly */
+        @media (min-width: 769px) {
+            .sidebar-content { height: 100%; overflow-y: auto; padding-right: 5px; }
         }
     </style>
 </head>
@@ -207,65 +219,70 @@
     </div>
 
     <div class="sidebar">
-        <h2>
-            Corner Size 
-            <span class="info-icon" data-tooltip="Tool Purpose:&#10;&#10;Measures 'Corner Size' of Emerald Cut diamonds.&#10;&#10;1. Outline: Blue Box.&#10;2. Corners: Red Lines.&#10;3. Grades: VEN & AG.">i</span>
-        </h2>
-        
-        <div class="file-input-wrapper">
-            <input type="file" id="imageLoader" accept="image/*">
-        </div>
-
-        <div style="display:flex; gap:10px; margin-bottom:10px;">
-             <button class="action-btn" style="flex:1; margin:0;" onclick="drawDefaultShape()">Reset</button>
-             <button class="ai-btn" style="flex:1; margin:0;" onclick="runVisionCheck()">AI Check ✨</button>
-        </div>
-
-        <h3>1. Stone Outline</h3>
-        <button id="btnBox" onclick="selectTool('box')">
-            <span><span class="color-box box-color"></span>Adjust Blue Box</span>
-            <span class="status-dot"></span>
-        </button>
-
-        <h3>2. Corner Cuts</h3>
-        <div style="display:flex; justify-content:space-between; margin-bottom:10px;">
-             <button class="small-btn" onclick="setCornersPercentage(0.18)">Preset 18%</button>
-             <button class="small-btn" onclick="setCornersPercentage(0.35)">Preset 35%</button>
-        </div>
-        <button id="btnC1" onclick="selectTool(0)"><span><span class="color-box corner-color"></span>Top Left (1)</span><span class="status-dot"></span></button>
-        <button id="btnC2" onclick="selectTool(1)"><span><span class="color-box corner-color"></span>Top Right (2)</span><span class="status-dot"></span></button>
-        <button id="btnC3" onclick="selectTool(2)"><span><span class="color-box corner-color"></span>Bot Right (3)</span><span class="status-dot"></span></button>
-        <button id="btnC4" onclick="selectTool(3)"><span><span class="color-box corner-color"></span>Bot Left (4)</span><span class="status-dot"></span></button>
-
-        <div class="results" id="resultsPanel" style="display:none;">
-            <h3>Results</h3>
-            <div class="result-row"><span>Dimensions:</span> <span id="resDim" style="font-weight:bold;">--</span></div>
-            <div class="result-row sub"><span>Top Left:</span> <span id="resC1">--</span></div>
-            <div class="result-row sub"><span>Top Right:</span> <span id="resC2">--</span></div>
-            <div class="result-row sub"><span>Bot Right:</span> <span id="resC3">--</span></div>
-            <div class="result-row sub"><span>Bot Left:</span> <span id="resC4">--</span></div>
-            <div class="result-row"><span>Avg Corner:</span> <span id="resAvgCorner" style="font-weight:bold;">--</span></div>
+        <div class="sidebar-content">
+            <h2>
+                Corner Size 
+                <span class="info-icon" data-tooltip="Tool Purpose:&#10;&#10;Measures 'Corner Size' of Emerald Cut diamonds.&#10;&#10;1. Outline: Blue Box.&#10;2. Corners: Red Lines.&#10;3. Grades: VEN & AG.">i</span>
+            </h2>
             
-            <div class="result-row main">
-                <span>VEN Method <span class="info-icon" data-tooltip="VEN: Corner / Avg(L,W)">i</span></span>
-                <span id="resInd" style="color: #d4380d;">--%</span>
+            <div class="file-input-wrapper">
+                <input type="file" id="imageLoader" accept="image/*">
+            </div>
+
+            <button class="action-btn" onclick="drawDefaultShape()">Reset to Default Shape</button>
+
+            <h3>1. Stone Outline</h3>
+            <button id="btnBox" onclick="selectTool('box')">
+                <span><span class="color-box box-color"></span>Adjust Blue Box</span>
+                <span class="status-dot"></span>
+            </button>
+
+            <h3>2. Corner Cuts</h3>
+            <div style="display:flex; justify-content:space-between; margin-bottom:10px;">
+                 <button class="small-btn" onclick="setCornersPercentage(0.18)">Preset 18%</button>
+                 <button class="small-btn" onclick="setCornersPercentage(0.35)">Preset 35%</button>
+            </div>
+            <button id="btnC1" onclick="selectTool(0)"><span><span class="color-box corner-color"></span>Top Left (1)</span><span class="status-dot"></span></button>
+            <button id="btnC2" onclick="selectTool(1)"><span><span class="color-box corner-color"></span>Top Right (2)</span><span class="status-dot"></span></button>
+            <button id="btnC3" onclick="selectTool(2)"><span><span class="color-box corner-color"></span>Bottom Right (3)</span><span class="status-dot"></span></button>
+            <button id="btnC4" onclick="selectTool(3)"><span><span class="color-box corner-color"></span>Bottom Left (4)</span><span class="status-dot"></span></button>
+
+            <div class="results" id="resultsPanel" style="display:none;">
+                <h3>Results</h3>
+                <div class="result-row"><span>Dimensions:</span> <span id="resDim" style="font-weight:bold;">--</span></div>
+                <div class="result-row sub"><span>Top Left (1):</span> <span id="resC1">--</span></div>
+                <div class="result-row sub"><span>Top Right (2):</span> <span id="resC2">--</span></div>
+                <div class="result-row sub"><span>Bottom Right (3):</span> <span id="resC3">--</span></div>
+                <div class="result-row sub"><span>Bottom Left (4):</span> <span id="resC4">--</span></div>
+                <div class="result-row"><span>Avg Corner Size:</span> <span id="resAvgCorner" style="font-weight:bold;">--</span></div>
+                
+                <div class="result-row main">
+                    <span>VEN Method <span class="info-icon" data-tooltip="VEN Method (Industry Standard)&#10;&#10;Formula: Corner / Average(Length, Width)&#10;&#10;Logic: Physical Volume.&#10;This method averages the stone's overall dimensions first (finding the 'mean diameter'), and then compares the corner size to that average.&#10;&#10;Effect: It yields a lower percentage for elongated stones because the long length 'dilutes' the ratio.">i</span></span>
+                    <span id="resInd" style="color: #d4380d;">--%</span>
+                </div>
+                
+                <div class="result-row main" style="margin-top:10px; border:none; padding:0;">
+                    <span>AG Method <span class="info-icon" data-tooltip="AG Method (Visual Impact)&#10;&#10;Formula: Average of [ (Corner/Length) and (Corner/Width) ]&#10;&#10;Logic: Visual Proportions.&#10;This method calculates the percentage of the corner relative to the Width and relative to the Length separately, and then averages those two percentages.&#10;&#10;Effect: It yields a slightly higher percentage that better reflects how 'heavy' or steep the corners appear on the narrow sides of the stone.">i</span></span>
+                    <span id="resAG" style="color: #389e0d;">--%</span>
+                </div>
+                
+                <button class="ai-btn" style="margin-top: 15px; width:100%;" onclick="runDataAnalysis()">AI Cut Analysis ✨</button>
             </div>
             
-            <div class="result-row main" style="margin-top:10px; border:none; padding:0;">
-                <span>AG Method <span class="info-icon" data-tooltip="AG: Avg(Corner/L, Corner/W)">i</span></span>
-                <span id="resAG" style="color: #389e0d;">--%</span>
+            <div class="instructions">
+                <strong>How to Adjust:</strong><br>
+                • Drag the <strong>Blue Lines</strong> to frame the stone.<br>
+                • Drag the <strong>Black Arrows</strong> along the line to mark where the corner cut starts.
             </div>
             
-            <button class="ai-btn" style="margin-top: 15px; width:100%;" onclick="runDataAnalysis()">AI Cut Analysis ✨</button>
+            <!-- Extra space for bottom scrolling on mobile -->
+            <div style="height: 60px;"></div>
         </div>
-        
-        <!-- Spacer for bottom scrolling -->
-        <div style="height: 50px;"></div>
     </div>
 
     <div class="main-area">
         <div class="toolbar">
-            <label>Zoom</label>
+            <label>Zoom:</label>
             <input type="range" id="zoomSlider" min="1" max="5" step="0.1" value="1">
             <span id="zoomVal" class="zoom-label">1.0x</span>
         </div>
@@ -290,14 +307,6 @@
     let dragTarget = null; 
     let dragRatios = [null, null, null, null];
     const LINE_WIDTH = 2; const DOT_RADIUS = 6; const SNAP_DIST = 30; const IMG_PAD = 60;
-
-    // --- BOTTOM SHEET LOGIC ---
-    const bottomSheet = document.getElementById('bottomSheet');
-    function toggleSheet() {
-        bottomSheet.classList.toggle('expanded');
-    }
-    // Auto-expand when file loaded
-    function expandSheet() { if(bottomSheet) bottomSheet.classList.add('expanded'); }
 
     // --- INIT ---
     document.getElementById('imageLoader').addEventListener('change', handleImage, false);
@@ -346,8 +355,7 @@
                 stoneQuad = null; corners = [null, null, null, null];
                 currentMultiplier = 1.0; zoomSlider.value = 1.0;
                 calcBaseScale(); applyZoom(); updateUI();
-                drawDefaultShape();
-                expandSheet(); // Open controls on load
+                drawDefaultShape(); // MANUAL MODE
             }
             img.src = event.target.result;
         }
@@ -356,14 +364,12 @@
 
     function calcBaseScale() {
         const container = document.getElementById('canvasContainer');
-        // Subtract padding 
-        const availW = container.clientWidth - 40; 
-        const availH = container.clientHeight - 40;
+        const availW = container.clientWidth; 
+        const availH = container.clientHeight;
         const scaleW = availW / canvas.width;
         const scaleH = availH / canvas.height;
-        // Always fit entirely
         fitScale = Math.min(scaleW, scaleH);
-        // On mobile, if scale is tiny, don't let it disappear, but respecting min is usually safe
+        if(isMobile() && fitScale > 1) fitScale = 1;
     }
     function applyZoom() {
         if(!img.src) return;
@@ -380,7 +386,6 @@
         
         let defH = imgH * 0.99; 
         let defW = defH / 1.45; 
-        
         if (defW > imgW * 0.99) { defW = imgW * 0.99; defH = defW * 1.45; }
 
         const cx = imgW/2 + IMG_PAD; const cy = imgH/2 + IMG_PAD;
@@ -410,14 +415,33 @@
     }
 
     // --- INTERACTION ---
+    // Handle both mouse and touch via normalized start/move/end
     canvas.addEventListener('mousedown', e => start(getPos(e)));
     canvas.addEventListener('mousemove', e => { 
-        const p = getPos(e); canvas.style.cursor = checkHandles(p) ? 'pointer' : 'default'; 
+        const p = getPos(e); 
+        canvas.style.cursor = checkHandles(p) ? 'pointer' : 'default'; 
         if(isDragging) move(p); 
     });
     canvas.addEventListener('mouseup', end);
-    canvas.addEventListener('touchstart', e => { if(e.touches.length===1) { const p = getPos(e.touches[0]); if(checkHandles(p)) { e.preventDefault(); start(p); } } }, {passive:false});
-    canvas.addEventListener('touchmove', e => { if(isDragging && e.touches.length===1) { e.preventDefault(); move(getPos(e.touches[0])); } }, {passive:false});
+
+    canvas.addEventListener('touchstart', e => { 
+        if(e.touches.length===1) {
+            const p = getPos(e.touches[0]);
+            // If hitting a handle, we MUST preventDefault to stop scroll and start drag
+            if(checkHandles(p)) {
+                e.preventDefault(); 
+                start(p);
+            }
+        }
+    }, {passive: false});
+
+    canvas.addEventListener('touchmove', e => { 
+        if(isDragging && e.touches.length===1) {
+            e.preventDefault(); // Stop scroll while dragging
+            move(getPos(e.touches[0]));
+        }
+    }, {passive: false});
+
     canvas.addEventListener('touchend', end);
 
     function getPos(e) { const r=canvas.getBoundingClientRect(); return { x:(e.clientX-r.left)*(canvas.width/r.width), y:(e.clientY-r.top)*(canvas.height/r.height) }; }
@@ -546,6 +570,7 @@
         document.getElementById('resAG').innerText = ag.toFixed(2) + "%";
     }
     function dist(p1, x2, y2) { return Math.hypot(p1.x-x2, p1.y-y2); }
+    function distPt(x1, y1, x2, y2) { return Math.hypot(x1-x2, y1-y2); }
 
     // --- AI ---
     async function runDataAnalysis() {
@@ -553,13 +578,6 @@
         const data = { dim: document.getElementById('resDim').innerText, avg: document.getElementById('resAvgCorner').innerText, ven: document.getElementById('resInd').innerText, ag: document.getElementById('resAG').innerText };
         showAIModal("Gemini Analysis...");
         try { const res = await callGemini(`Analyze these Emerald Cut diamond specs: ${JSON.stringify(data)}. Are the corners classic or truncated?`); document.getElementById('aiResult').innerHTML = marked.parse(res); } catch(e) { document.getElementById('aiResult').innerText = "Error: " + e; }
-    }
-    async function runVisionCheck() {
-        if(!apiKey) { showAIModal("Please set 'const apiKey' in the code."); return; }
-        const tCan = document.createElement('canvas'); tCan.width = img.width; tCan.height = img.height; tCan.getContext('2d').drawImage(img,0,0);
-        const b64 = tCan.toDataURL("image/jpeg").split(',')[1];
-        showAIModal("Gemini Vision inspecting...");
-        try { const res = await callGemini("Identify stone shape, cut style, and general symmetry.", b64); document.getElementById('aiResult').innerHTML = marked.parse(res); } catch(e) { document.getElementById('aiResult').innerText = "Error: " + e; }
     }
     function showAIModal(msg) { document.getElementById('aiModal').style.display = 'flex'; document.getElementById('aiResult').innerHTML = `<em>${msg}</em>`; }
     async function callGemini(text, b64=null) {
